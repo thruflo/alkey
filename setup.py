@@ -15,7 +15,8 @@ def _read(file_name):
 setup(
     name = 'alkey',
     version = '0.1',
-    description = 'Redis backed instance cache for sqlalchemy models.',
+    description = 'Redis backed tool for generating cache keys.',
+    long_description = _read('README.md'),
     author = 'James Arthur',
     author_email = 'username: thruflo, domain: gmail.com',
     url = 'http://github.com/thruflo/alkey',
