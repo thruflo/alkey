@@ -135,7 +135,7 @@ class CacheKeyGenerator(object):
         self.valid_object_id = valid_oid
     
 
-def get_cache_key_generator(request, generator_cls=None, get_redis=None):
+def get_cache_key_generator(request=None, generator_cls=None, get_redis=None):
     """Return an instance of ``CacheKeyGenerator`` configured with a redis
       client and the right cache duration.
     """
