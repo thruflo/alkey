@@ -1,90 +1,66 @@
 # Alkey
 
-[alkey][] is a [Redis][] backed [SQLAlchemy][] instance cache. When bound
-to the SQLAlchemy session's [after_flush][] and [after_commit][] events,
-it maintains a unique token against each model instance that changes whenever
-the instance is updated or deleted.
+[alkey][] is a [Redis][] backed tool for generating cache keys that implicitly
+update / invalidate when [SQLAlchemy][] model instances change. It can be used
+by any [SQLAlchemy][] application that has access to [Redis][]. Plus it has
+(optional) integration with the [Pyramid][] framework: `config.include` the
+package and generate keys using, e.g.:
 
-This allows cache keys to be constructed (e.g.: using the
-`alkey.cache.CacheKeyGenerator`) that are implicitly invalidated when
-content changes, without having to manually keep track of what has changed
-in application code.
+    cache_key = request.cache_key('template uri', request.context)
 
-The main algorithm is to record instances as changed when they're flushed to
-the db in the session's dirty or deleted lists (identifiers in the format `alkey:tablename#row_id`, e.g.: `alkey:users#1`, are stored in a Redis set).
-Then when a transaction commits, the tokens for each recorded instance are
-invalidated. This means that a cache key containing the invalidated token
-will miss, causing the cached value to be regenerated.
+[alkey][] works by binding to the SQLAlchemy session's [after_flush][] and
+[after_commit][] events to maintain a unique token against every model instance
+that changes whenever a model instance is updated or deleted.
 
-# Usage
+The algorithm is to record instances as changed when they're flushed to the db
+in the session's dirty or deleted lists (identifiers in the format
+`alkey:tablename#row_id`, e.g.: `alkey:users#1`, are stored in a Redis set).
+Then when the flushed changes are committed, the tokens for each recorded
+instance are updated. This means that a cache key constructed using the
+instance tokens will miss, causing the cached value to be regenerated.
 
-You need to configure or provide a [redis client][] and bind the
-`alkey.handle.handle_flush` and `alkey.handle.handle_commit` functions to
-your SQLAlchemy Session's `after_flush` and `after_commit` events.
-
-## Binding to Session Events
-
-The simplest way is to use the `alkey.bind(session)` function, e.g.:
-    
-    import alkey
-    from myapp import Session # the sqlalchemy session you're using
-    
-    alkey.bind(Session)
-
-Or bind the events to their handlers manually, e.g.:
-
-    from alkey import handle
-    from myapp import Session
-    from sqlalchemy import event
-    
-    event.listen(Session, 'after_flush', handle.handle_flush)
-    event.listen(Session, 'after_commit', handle.handle_commit)
+(Tokens are also updated if missing, so keys will also be invalidated if you
+lose / flush your Redis data).
 
 ## Configuring a Redis Client
 
-You can then generate cache keys using the `alkey.cache.CacheKeyGenerator`
-utility, or retrieve the instance tokens yourself using `alkey.cache.get_token`.
+[alkey][] looks in the `os.environ` (i.e.: you need to provide
+[environment variables][]) for a values to configure a [redis client][], e.g.:
 
-Both of these require a redis client, which is got, by default, from the
-`alkey.client.get_redis_client` function. This will look in the `os.environ`
-or an `env` dictionary passed in for url / db and max connections configuration.
+* `REDIS_URL`: a connection string including any authenticaton information, e.g.:
+  `redis://username:password@hostname:port`
+* `REDIS_DB`: defaults to `0`
+* `REDIS_MAX_CONNECTIONS`
 
-For example, if you have `REDIS_URL=redis://localhost:6379` in your environment
-variables:
+Read the docstring / source code in `alkey.client.get_redis_config` for more
+details. You can also use the components with your own pre-configured redis
+client but, if so, you'll need to bind the session events to your own handle
+functions so they have access to it.
 
-    from alkey.client import get_redis_client
-    redis_client = get_redis_client()
+## Binding to Session Events
 
-Or to pass in config explicitly:
-
-    env = {'REDIS_URL': 'redis://...', 'REDIS_DB': 0, 'REDIS_MAX_CONNECTIONS': 5}
-    redis_client = get_redis_client(env=env)
-
-Sidebar 1: generally, it's much better to have the redis config read in from the
-`os.environ`, as the redis client factory is invoked in response to the session
-events, i.e.: whilst you can pass in your own env to the factory, you'd have to
-manually setup the session event handling to instantiate a client with that config,
-rather than using the current event handlers as they are.
-
-Sidebar 2: note that the max connections are used to create a per (sub)process
-connection pool. Read the docstring in `redis.client.get_redis_config` for the
-details or just be aware that your redis db needs to be able to accept
-`max connections * processes * workers` connections, or your app will blow up
-when you get some traffic.
+Use the `alkey.events.bind` function, e.g.:
+    
+    from alkey import events
+    from myapp import Session # the sqlalchemy session you're using
+    
+    events.bind(Session)
 
 ## Generating Cache Keys
 
-You can then instantiate a `CacheKeyGenerator` and pass in any of the following
-types as key fragments:
+You can then instantiate an `alkey.cache.CacheKeyGenerator` and call it with
+any of the following types as positional arguments to generate a cache key:
 
-* model instances
+* SQLAlchemy model instances
 * model instance identifiers in the format `alkey:tablename#row_id`
 * arbitrary values that can be coerced to a unicode string
 
-E.g.:
+E.g. using the `alkey.cache.get_cache_key_generator` factory to instantiate:
 
-    get_cache_key = CacheKeyGenerator(redis_client)
-    key = get_cache_key(instance, 'alkey:users#1', 1, 'foo', {'bar': 'baz'})
+    from alkey.cache import get_cache_key_generator
+    
+    key_generator = get_cache_key_generator()
+    cache_key = key_generator(instance, 'alkey:users#1', 1, 'foo', {'bar': 'baz'})
 
 Or you can directly get the instance token with `alkey.cache.get_token`, e.g.: using
 either of the following:
@@ -95,7 +71,7 @@ either of the following:
 ## Pyramid Integration
 
 If you're writing a [Pyramid][] application, you can bind to the session events
-just by including the package:
+by just including the package:
 
     config.include('alkey')
 
@@ -123,3 +99,4 @@ Or e.g.: in a [Mako template][]:
 [Pyramid]: http://docs.pylonsproject.org/projects/pyramid/en/latest
 [Mako template]: http://www.makotemplates.org/
 [pyramid_basemodel]: http://github.com/thruflo/pyramid_basemodel
+[environment variables]: http://blog.akash.im/per-project-environment-variables-with-forema
