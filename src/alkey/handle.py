@@ -92,8 +92,7 @@ def handle_flush(session, ctx, get_redis=None, get_request=None, record=None):
     redis_client = get_redis(request)
     
     # Record the changed instances.
-    instances = session.dirty.copy()
-    instances.union(session.deleted)
+    instances = session.dirty.union(session.deleted)
     record(redis_client, instances)
 
 
