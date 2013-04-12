@@ -24,7 +24,7 @@ lose / flush your Redis data).
 
 ## Configuring a Redis Client
 
-[alkeyAlkey][] looks in the `os.environ` (i.e.: you need to provide
+[Alkey][] looks in the `os.environ` (i.e.: you need to provide
 [environment variables][]) for a values to configure a [redis client][]:
 
 * `REDIS_URL`: a connection string including any authenticaton information, e.g.:
