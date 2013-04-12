@@ -25,15 +25,29 @@ from .utils import get_stamp
 
 CHANGED_KEY = 'alkey.handle.CHANGED'
 
-def handle_commit(session, get_redis=None, get_request=None):
-    """Get the current request and call the invalidate function."""
+def handle_commit(session, get_redis=None, get_request=None, invalidate=None):
+    """Gets a redis client and call the invalidate function with it.
+      
+          >>> from mock import Mock
+          >>> mock_get_request = Mock()
+          >>> mock_get_request.return_value = '<request>'
+          >>> mock_get_redis = Mock()
+          >>> mock_get_redis.return_value = '<redis client>'
+          >>> mock_invalidate = Mock()
+          >>> mock_kwargs = dict(get_redis=mock_get_redis,
+          ...         get_request=mock_get_request, invalidate=mock_invalidate)
+          >>> handle_commit('session', **mock_kwargs)
+          >>> mock_get_redis.assert_called_with('<request>')
+          >>> mock_invalidate.assert_called_with('<redis client>')
+      
+    """
     
     # Compose.
-    if get_redis is None:
+    if get_redis is None: # pragma: no cover
         get_redis = get_redis_client
-    if get_request is None:
+    if get_request is None: # pragma: no cover
         get_request = get_current_request
-    if invalidate is None:
+    if invalidate is None: # pragma: no cover
         invalidate = invalidate_tokens
     
     # Get a redis client configured with the current scope's
@@ -45,14 +59,31 @@ def handle_commit(session, get_redis=None, get_request=None):
     invalidate(redis_client)
 
 def handle_flush(session, ctx, get_redis=None, get_request=None, record=None):
-    """Get the current request and record the changed instances."""
+    """Get the current request and record the changed instances.
+      
+          >>> from mock import Mock
+          >>> mock_session = Mock()
+          >>> mock_session.dirty = set('a')
+          >>> mock_session.deleted = set('b')
+          >>> mock_get_request = Mock()
+          >>> mock_get_request.return_value = '<request>'
+          >>> mock_get_redis = Mock()
+          >>> mock_get_redis.return_value = '<redis client>'
+          >>> mock_record = Mock()
+          >>> mock_kwargs = dict(get_redis=mock_get_redis,
+          ...         get_request=mock_get_request, record=mock_record)
+          >>> handle_flush(mock_session, 'ctx', **mock_kwargs)
+          >>> mock_get_redis.assert_called_with('<request>')
+          >>> mock_record.assert_called_with('<redis client>', set(['a', 'b']))
+      
+    """
     
     # Compose.
-    if get_redis is None:
+    if get_redis is None: # pragma: no cover
         get_redis = get_redis_client
-    if get_request is None:
+    if get_request is None: # pragma: no cover
         get_request = get_current_request
-    if record is None:
+    if record is None: # pragma: no cover
         record = record_changed
     
     # Get a redis client configured with the current scope's
