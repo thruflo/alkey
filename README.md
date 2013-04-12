@@ -1,6 +1,6 @@
 # Alkey
 
-[alkey][] is a [Redis][] backed tool for generating cache keys that implicitly
+[Alkey][] is a [Redis][] backed tool for generating cache keys that implicitly
 update / invalidate when [SQLAlchemy][] model instances change. It can be used
 by any [SQLAlchemy][] application that has access to [Redis][]. Plus it has
 (optional) integration with the [Pyramid][] framework: `config.include` the
@@ -8,22 +8,23 @@ package and generate keys using, e.g.:
 
     cache_key = request.cache_key('template uri', request.context)
 
-[alkey][] works by binding to the SQLAlchemy session's [after_flush][] and
-[after_commit][] events to maintain a unique token against every model instance
-that changes whenever a model instance is updated or deleted.
+[Alkey][] works by binding to the SQLAlchemy session's [after_flush][] and
+[after_commit][] events to maintain a unique token against every model instance.
+This token changes whenever a model instance is updated or deleted.
 
 The algorithm is to record instances as changed when they're flushed to the db
 in the session's dirty or deleted lists (identifiers in the format
-`alkey:tablename#row_id`, e.g.: `alkey:users#1`, are stored in a Redis set).
+`Alkey:tablename#row_id`, e.g.: `Alkey:users#1`, are stored in a Redis set).
 Then when the flushed changes are committed, the tokens for each recorded
 instance are updated. This means that a cache key constructed using the
-instance tokens will miss, causing the cached value to be regenerated. Tokens
-are also updated if missing, so keys will also be invalidated if you lose /
-flush your Redis data.
+instance tokens will miss, causing the cached value to be regenerated.
+
+(Tokens are also updated if missing, so keys will also be invalidated if you
+lose / flush your Redis data).
 
 ## Configuring a Redis Client
 
-[alkey][] looks in the `os.environ` (i.e.: you need to provide
+[alkeyAlkey][] looks in the `os.environ` (i.e.: you need to provide
 [environment variables][]) for a values to configure a [redis client][]:
 
 * `REDIS_URL`: a connection string including any authenticaton information, e.g.:
@@ -91,6 +92,32 @@ be available as ``request.cache_key``, e.g:
 Or e.g.: in a [Mako template][]:
 
     <%page cached=True, cache_key=${request.cache_key(1, self.uri, instance)} />
+
+## Tests
+
+[Alkey][] has been developed and tested against Python2.7. To run the tests,
+install `mock`, `nose` and `coverage` and either hack the `setUp` method in
+`alkey.tests:IntegrationTest` or have a Redis db available at
+`redis://localhost:6379`. Then, e.g.:
+
+    $ nosetests alkey --with-doctest --with-coverage --cover-tests --cover-package alkey
+    ....................
+    Name               Stmts   Miss  Cover   Missing
+    ------------------------------------------------
+    alkey                 11      0   100%   
+    alkey.cache           69      0   100%   
+    alkey.client          68      0   100%   
+    alkey.events          10      0   100%   
+    alkey.handle          38      0   100%   
+    alkey.interfaces       6      0   100%   
+    alkey.tests          119      0   100%   
+    alkey.utils           20      0   100%   
+    ------------------------------------------------
+    TOTAL                341      0   100%   
+    ----------------------------------------------------------------------
+    Ran 20 tests in 0.346s
+    
+    OK
 
 [alkey]: http://github.com/thruflo/alkey
 [Redis]: http://redis.io
