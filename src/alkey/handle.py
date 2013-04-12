@@ -96,8 +96,23 @@ def handle_flush(session, ctx, get_redis=None, get_request=None, record=None):
     record(redis_client, instances)
 
 
-def _invalidate_tokens(pipeline, key=None, get_value=None, store_value=None):
-    """Invalidate the tokens of the instances in the changed set."""
+def invalidate_tokens(redis_client, key=None, get_value=None, store_value=None):
+    """Invalidate tokens with a non-transactional pipeline call that minimises
+      TCP overhead without blocking the redis client.
+      
+      Note that the implementation deletes members from the changed set the
+      command after their token is changed. It's really not a problem if another
+      thread / process / client either sets the token or adds the member back to
+      the set in between these two commands, as either the token is updated twice,
+      which is fine, or the member is added to the set twice, which is fine, or
+      removed immediately before it is removed, which is fine.
+      
+      The upshot of which is that there's no need to run the commands in a
+      transaction, or (more importantly) to watch the changed key to make sure
+      members aren't added to the set whilst the transaction is completed. This
+      means we don't need to block redis / stop flushes from another client adding
+      members to the set as we do this block operation.
+    """
     
     # Compose.
     if key is None:
@@ -111,32 +126,19 @@ def _invalidate_tokens(pipeline, key=None, get_value=None, store_value=None):
     value = get_value()
     
     # Get the current members of the set.
-    members = pipeline.smembers(key)
+    members = redis_client.smembers(key)
     
-    # Switch mode, so the pipeline buffers the multiple set commands.
-    pipeline.multi()
+    # Get a pipeline to buffer multiple commands (i.e.: reduce TCP overhead)
+    pipeline = redis_client.pipeline(transaction=False)
     
-    # Update the token for each member of the set.
+    # Update the token for each member of the set, deleting the member from the
+    # as the next sequential command.
     for item in members:
         store_value(pipeline, item, value)
+        pipeline.srem(key, item)
     
-    # Wipe the set.
-    return pipeline.srem(key, *members)
-
-def invalidate_tokens(redis_client, invalidate=None, key=None):
-    """Call ``_invalidate_tokens`` within a transactional pipeline,
-      so the redis interaction avoids tcp overhead and is guaranteed to
-      be consistent, i.e.: will retry in the event of an error.
-    """
-    
-    # Compose.
-    if invalidate is None:
-        invalidate = _invalidate_tokens
-    if key is None:
-        key = CHANGED_KEY
-    
-    # Call ``invalidate`` in a pipeline transaction.
-    return redis_client.transaction(invalidate, key)
+    # Execute the queued commands.
+    pipeline.execute()
 
 def record_changed(redis_client, instances, key=None, get_oid=None):
     """Add the instances to the changed set redis."""
