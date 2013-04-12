@@ -23,6 +23,7 @@ import redis
 from zope.component import getGlobalSiteManager
 from zope.interface import directlyProvides
 
+from .interfaces import IRedisClientFactory
 from .interfaces import IRedisConnectionPool
 
 def get_redis_config(env, default_db=0, default_stub='REDIS', parse=None):
@@ -167,7 +168,13 @@ def get_redis_client(request=None, env=None, get_config=None, get_registry=None,
     has_registry = request and hasattr(request, 'registry')
     registry = request.registry if has_registry else get_registry()
     
-    # Get or create a connection pool.
+    # If the application / user has registered their own redis client factory
+    # then use that.
+    factory = registry.queryUtility(IRedisClientFactory)
+    if factory:
+        return factory(request=request)
+    
+    # Otherwise, get or create a connection pool.
     pool = registry.queryUtility(IRedisConnectionPool)
     if not pool:
         config = get_config(env)
@@ -175,6 +182,6 @@ def get_redis_client(request=None, env=None, get_config=None, get_registry=None,
         directlyProvides(pool, IRedisConnectionPool)
         registry.registerUtility(pool, IRedisConnectionPool)
     
-    # Return an instantiated redis client.
+    # And use it to instantiate a redis client.
     return redis_cls(connection_pool=pool)
 
