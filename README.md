@@ -17,25 +17,27 @@ in the session's dirty or deleted lists (identifiers in the format
 `alkey:tablename#row_id`, e.g.: `alkey:users#1`, are stored in a Redis set).
 Then when the flushed changes are committed, the tokens for each recorded
 instance are updated. This means that a cache key constructed using the
-instance tokens will miss, causing the cached value to be regenerated.
-
-(Tokens are also updated if missing, so keys will also be invalidated if you
-lose / flush your Redis data).
+instance tokens will miss, causing the cached value to be regenerated. Tokens
+are also updated if missing, so keys will also be invalidated if you lose /
+flush your Redis data.
 
 ## Configuring a Redis Client
 
 [alkey][] looks in the `os.environ` (i.e.: you need to provide
-[environment variables][]) for a values to configure a [redis client][], e.g.:
+[environment variables][]) for a values to configure a [redis client][]:
 
 * `REDIS_URL`: a connection string including any authenticaton information, e.g.:
   `redis://username:password@hostname:port`
 * `REDIS_DB`: defaults to `0`
-* `REDIS_MAX_CONNECTIONS`
+* `REDIS_MAX_CONNECTIONS`: the maximum number of connections for the client's
+  connection pool (defaults to not set)
 
-Read the docstring / source code in `alkey.client.get_redis_config` for more
-details. You can also use the components with your own pre-configured redis
-client but, if so, you'll need to bind the session events to your own handle
-functions so they have access to it.
+The parsing logic is intelligent enough to pick up environment variables
+provided by popular [Heroku addons][] like `REDISTOGO_URL` and `OPENREDIS_URL`,
+etc. Read the `alkey.client.get_redis_config` docstring for the gory details.
+Alternatively, if you'd prefer to provide your own redis client, register an `alkey.interfaces.IRedisClientFactory` function or an
+`alkey.interfaces.IRedisConnectionPool` instance. Read 
+`alkey.client.get_redis_client` to see how.
 
 ## Binding to Session Events
 
@@ -100,3 +102,4 @@ Or e.g.: in a [Mako template][]:
 [Mako template]: http://www.makotemplates.org/
 [pyramid_basemodel]: http://github.com/thruflo/pyramid_basemodel
 [environment variables]: http://blog.akash.im/per-project-environment-variables-with-forema
+[Heroku addons]: https://www.google.co.uk/search?q=Heroku+addons+redis
