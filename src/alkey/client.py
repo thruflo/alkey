@@ -29,25 +29,66 @@ def get_redis_config(env, default_db=0, default_stub='REDIS', parse=None):
     """Return a dict of ``{host: ..., port: ..., db: ..., max_connections: N}``
       by parsing the ``env`` config. The logic is designed to pick up the first
       value starting with ``redis://`` and use the key from that value to look
-      for db and max_connections.
+      for db and max_connections. This, in theory, allows any redis provider
+      to be picked up:
       
-      This, in theory, allows any redis provider to be picked up. In practise
-      it means:
+      Requires a redis url in the ``env``::
       
-      a) don't have more than one redis url in your env (if your environment does
-         then pass a manually constructed env to the function that only contains
-         the config you want to use)
-      b) follow the REDIS_URL / REDIS_DB / REDIS_MAX_CONNECTIONS naming convention,
-         e.g.: REDISCLOUD_URL / REDISCLOUD_DB / REDISCLOUD_MAX_CONNECTIONS
+          >>> env = {}
+          >>> get_redis_config(env) #doctest: +ELLIPSIS
+          Traceback (most recent call last):
+          ...
+          KeyError: u'Redis URL not found in env.'
+          >>> env = {'REDIS_URL': u'redis://username:password@hostname:6379'}
+          >>> get_redis_config(env)
+          {'host': u'hostname', 'password': u'password', 'db': 0, 'port': 6379}
+          
+      Actually the key can be any name (the implementation looks for the
+      ``redis://...`` value)::
       
-      Note also that the max connections is passed to a connection pool shared
+          >>> env = {'FOO': u'redis://username:password@hostname:6379'}
+          >>> get_redis_config(env)
+          {'host': u'hostname', 'password': u'password', 'db': 0, 'port': 6379}
+      
+      If provided, ``REDIS_DB`` and ``REDIS_MAX_CONNECTIONS`` will be parsed::
+      
+          >>> env = {
+          ...     'REDIS_URL': u'redis://hostname:6379',
+          ...     'REDIS_DB': '3',
+          ...     'REDIS_MAX_CONNECTIONS': '12'
+          ... }
+          >>> get_redis_config(env)
+          {'host': u'hostname', 'db': 3, 'port': 6379, 'max_connections': 12}
+      
+      Note that the values will *either* be picked up from the ``REDIS_*`` keys
+      *or* from keys matching the stub of the redis url key, with the matching
+      stub taking precedence::
+      
+          >>> env = {
+          ...     'REDISTOGO_URL': u'redis://hostname:6379',
+          ...     'REDIS_DB': '1',
+          ...     'REDISTOGO_DB': '2',
+          ...     'REDISTOGO_MAX_CONNECTIONS': '3'
+          ... }
+          >>> get_redis_config(env)
+          {'host': u'hostname', 'db': 2, 'port': 6379, 'max_connections': 3}
+          >>> env = {
+          ...     'REDISTOGO_URL': u'redis://hostname:6379',
+          ...     'REDISTOGO_DB': '4',
+          ...     'REDIS_MAX_CONNECTIONS': '5'
+          ... }
+          >>> get_redis_config(env)
+          {'host': u'hostname', 'db': 4, 'port': 6379, 'max_connections': 5}
+      
+      Note that the max connections is passed to a connection pool shared
       by this process / worker. That means that you must manage your connections
       to stay within the limits of your redis instance / redis hosting provider
-      and your processes / workers. For example, if you run 2 processes each
-      with 2 gunicorn workers and set max connections to 5, then you need a
-      redis db that can accept 20 connections (as long as you're only ever
-      connecting from those processes -- i.e.: maybe leave a few spare
-      connections for debugging etc).
+      and your processes / workers.
+      
+      For example, if you run 2 processes each with 2 gunicorn workers and set
+      max connections to 5, then you need a redis db that can accept 20
+      connections (as long as you're only ever connecting from those processes
+      -- i.e.: maybe leave a few spare connections for debugging etc).
     """
     
     # Compose.
@@ -68,22 +109,24 @@ def get_redis_config(env, default_db=0, default_stub='REDIS', parse=None):
         raise KeyError, u'Redis URL not found in env.'
     
     # Build the db and max_connections keys.
+    stubs = []
     if u'_' in url_key:
-        stub = url_key.split(u'_')[0]
-    else:
-        stub = default_stub
-    db_key = u'{0}_DB'.format(stub)
-    max_connections_key = u'{0}_MAX_CONNECTIONS'.format(stub)
+        stubs.append(url_key.split(u'_')[0])
+    stubs.append(default_stub)
+    db_keys = [u'{0}_DB'.format(item) for item in stubs]
+    max_connections_keys = [u'{0}_MAX_CONNECTIONS'.format(item) for item in stubs]
     
     # Get the db and max conns values.
-    if env.has_key(db_key):
-        db = int(env[db_key])
-    else:
-        db = default_db
-    if env.has_key(max_connections_key):
-        max_connections = int(env[max_connections_key])
-    else:
-        max_connections = None
+    db = default_db
+    for key in db_keys:
+        if env.has_key(key):
+            db = int(env[key])
+            break
+    max_connections = None
+    for key in max_connections_keys:
+        if env.has_key(key):
+            max_connections = int(env[key])
+            break
     
     # Build and return the config data.
     config = {
