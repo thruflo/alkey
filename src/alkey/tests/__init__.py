@@ -5,9 +5,9 @@
 """
 
 import unittest
-try:
+try: # pragma: no cover
     from mock import Mock
-except ImportError:
+except ImportError: # pragma: no cover
     pass
 
 class IntegrationTest(unittest.TestCase):
