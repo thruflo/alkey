@@ -11,11 +11,11 @@ package and generate keys using, e.g.:
 [Alkey][] works by binding to the SQLAlchemy session's [after_flush][] and
 [after_commit][] events to maintain a unique token against every model instance.
 This token changes whenever a model instance is updated or deleted. Plus a
-`alkey.constants.GLOBAL_WRITE_TOKEN` (with the value `'*#*'`) is updated
+`alkey.constants.GLOBAL_WRITE_TOKEN` (with the value `'alkey:*#*'`) is updated
 whenever any instance is added, updated or deleted. You can use this to generate
 cache keys that invalidate in response to any db write, e.g.:
 
-    cache_key = request.cache_key('template uri', '*#*')
+    cache_key = request.cache_key('template uri', 'alkey:*#*')
 
 The main algorithm is to record instances as changed when they're flushed to the
 db in the session's new, dirty or deleted lists (identifiers in the format

@@ -10,7 +10,7 @@ CHANGED_SET_EXPIRES = 60 * 60 # secs
 
 # The special identifier used to generate the Redis key for the
 # token that's updated whenever any instance is updated or deleted.
-GLOBAL_WRITE_TOKEN = '*#*' # I.e.: ``any-tablename#any-id``.
+GLOBAL_WRITE_TOKEN = 'alkey:*#*' # I.e.: ``alkey:any-tablename#any-id``.
 
 # Don't cache *anything* longer than one day.
 MAX_CACHE_DURATION = 60 * 60 * 24 # secs
