@@ -20,10 +20,9 @@ except ImportError: #pragma: no cover
     get_current_request = lambda: None
 
 from .cache import set_token
+from .constants import CHANGED_KEY
 from .utils import get_object_id
 from .utils import get_stamp
-
-CHANGED_KEY = 'alkey.handle.CHANGED'
 
 def handle_commit(session, get_redis=None, get_request=None, invalidate=None):
     """Gets a redis client and call the invalidate function with it.

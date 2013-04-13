@@ -30,12 +30,11 @@ logger = logging.getLogger(__name__)
 from datetime import datetime
 
 from .client import get_redis_client
+from .constants import MAX_CACHE_DURATION
+from .constants import TOKEN_NAMESPACE
 from .utils import get_object_id
 from .utils import get_stamp
 from .utils import valid_object_id
-
-MAX_CACHE_DURATION = 60 * 60 * 24 # Don't cache *anything* longer than one day.
-TOKEN_NAMESPACE = 'alkey.cache.TOKENS'
 
 def get_token_key(instance, namespace=None, get_oid=None):
     """Return a token cache key."""
