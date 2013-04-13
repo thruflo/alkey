@@ -149,6 +149,38 @@ class IntegrationTest(unittest.TestCase):
         token3 = get_token(self.redis, instance)
         self.assertTrue(token2 == token3)
     
+    def test_any_commit_invalidates_global_write_token(self):
+        """The global token changes when any changes are commited."""
+        
+        import time
+        from alkey.cache import get_token
+        from alkey.constants import GLOBAL_WRITE_TOKEN
+        from alkey.handle import record_changed
+        from alkey.handle import invalidate_tokens
+        
+        # Get the global write token.
+        token1 = get_token(self.redis, GLOBAL_WRITE_TOKEN)
+        
+        # Pause.
+        time.sleep(0.1)
+        
+        # Get the global token again.
+        token2 = get_token(self.redis, GLOBAL_WRITE_TOKEN)
+        
+        # It's not changed.
+        self.assertTrue(token1 == token2)
+        
+        # Record and commit an instance change.
+        instance = self.makeInstance()
+        record_changed(self.redis, 'session_id', [instance])
+        invalidate_tokens(self.redis, 'session_id')
+        
+        # Get the global token again.
+        token3 = get_token(self.redis, GLOBAL_WRITE_TOKEN)
+        
+        # It's changed.
+        self.assertTrue(token2 != token3)
+    
     def test_get_cache_key(self):
         """Getting a cache key uses the instance token."""
         
@@ -179,6 +211,20 @@ class IntegrationTest(unittest.TestCase):
         
         self.assertTrue(token1 in cache_key)
         self.assertTrue(token2 in cache_key)
+    
+    def test_get_cache_key_multiple_instances(self):
+        """Getting a cache key works for the global write token."""
+        
+        from alkey.cache import get_cache_key_generator
+        from alkey.cache import get_token
+        from alkey.constants import GLOBAL_WRITE_TOKEN
+        
+        token = get_token(self.redis, GLOBAL_WRITE_TOKEN)
+        
+        generator = get_cache_key_generator(None)
+        cache_key = generator(GLOBAL_WRITE_TOKEN)
+        
+        self.assertTrue(cache_key == token)
     
     def test_unicode_key_segment(self):
         """Unicode args are concatenated directly into the key."""

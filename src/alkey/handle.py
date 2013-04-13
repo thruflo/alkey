@@ -21,6 +21,7 @@ except ImportError: #pragma: no cover
 
 from .cache import set_token
 from .constants import CHANGED_KEY
+from .constants import GLOBAL_WRITE_TOKEN
 from .utils import get_object_id
 from .utils import get_stamp
 
@@ -58,12 +59,14 @@ def handle_commit(session, get_redis=None, get_request=None, invalidate=None):
     invalidate(redis_client)
 
 def handle_flush(session, ctx, get_redis=None, get_request=None, record=None):
-    """Get the current request and record the changed instances.
+    """Get the current request and record the changed instances set::
       
           >>> from mock import Mock
           >>> mock_session = Mock()
-          >>> mock_session.dirty = set('a')
-          >>> mock_session.deleted = set('b')
+          >>> mock_session.hash_key = 'session id'
+          >>> mock_session.new = set('a')
+          >>> mock_session.dirty = set('b')
+          >>> mock_session.deleted = set('c')
           >>> mock_get_request = Mock()
           >>> mock_get_request.return_value = '<request>'
           >>> mock_get_redis = Mock()
@@ -73,7 +76,8 @@ def handle_flush(session, ctx, get_redis=None, get_request=None, record=None):
           ...         get_request=mock_get_request, record=mock_record)
           >>> handle_flush(mock_session, 'ctx', **mock_kwargs)
           >>> mock_get_redis.assert_called_with('<request>')
-          >>> mock_record.assert_called_with('<redis client>', set(['a', 'b']))
+          >>> mock_record.assert_called_with('<redis client>', 'session id',
+          ...         set(['a', 'c', 'b']))
       
     """
     
@@ -90,12 +94,13 @@ def handle_flush(session, ctx, get_redis=None, get_request=None, record=None):
     request = get_request()
     redis_client = get_redis(request)
     
-    # Record the changed instances.
-    instances = session.dirty.union(session.deleted)
-    record(redis_client, instances)
+    # Record the new, changed and deleted instances.
+    instances = session.new.union(session.dirty, session.deleted)
+    record(redis_client, session.hash_key, instances)
 
 
-def invalidate_tokens(redis_client, key=None, get_value=None, store_value=None):
+def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
+        global_token=None, store_value=None):
     """Invalidate tokens with a non-transactional pipeline call that minimises
       TCP overhead without blocking the redis client.
       
@@ -118,6 +123,8 @@ def invalidate_tokens(redis_client, key=None, get_value=None, store_value=None):
         key = CHANGED_KEY
     if get_value is None:
         get_value = get_stamp
+    if global_token is None:
+        global_token = GLOBAL_WRITE_TOKEN
     if store_value is None:
         store_value = set_token
     
@@ -135,6 +142,9 @@ def invalidate_tokens(redis_client, key=None, get_value=None, store_value=None):
     for item in members:
         store_value(pipeline, item, value)
         pipeline.srem(key, item)
+    
+    # Update the global write token.
+    store_value(pipeline, global_token, value)
     
     # Execute the queued commands.
     pipeline.execute()

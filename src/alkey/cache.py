@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 from datetime import datetime
 
 from .client import get_redis_client
+from .constants import GLOBAL_WRITE_TOKEN
 from .constants import MAX_CACHE_DURATION
 from .constants import TOKEN_NAMESPACE
 from .utils import get_object_id
@@ -104,7 +105,8 @@ class CacheKeyGenerator(object):
         for arg in args:
             # Try and get a token from redis.
             oid = self.get_object_id(arg)
-            if isinstance(oid, unicode) and self.valid_object_id.match(oid):
+            is_oid = isinstance(oid, unicode) and self.valid_object_id.match(oid)
+            if is_oid or arg == self.global_write_token:
                 segment = self.get_token(self.redis, oid)
             # Otherwise fallback on using a unicode representation of the arg.
             elif isinstance(oid, unicode):
@@ -116,7 +118,8 @@ class CacheKeyGenerator(object):
             segments.append(segment)
         return u'/'.join(segments)
     
-    def __init__(self, redis_client, get_oid=None, get_token_=None, valid_oid=None):
+    def __init__(self, redis_client, get_oid=None, get_token_=None, global_token=None,
+            valid_oid=None):
         """Instantiate a cache key generator with a redis client."""
         
         # Compose.
@@ -124,6 +127,8 @@ class CacheKeyGenerator(object):
             get_oid = get_object_id
         if get_token_ is None:
             get_token_ = get_token
+        if global_token is None:
+            global_token = GLOBAL_WRITE_TOKEN
         if valid_oid is None:
             valid_oid = valid_object_id
         
@@ -131,6 +136,7 @@ class CacheKeyGenerator(object):
         self.redis = redis_client
         self.get_object_id = get_oid
         self.get_token = get_token_
+        self.global_write_token = global_token
         self.valid_object_id = valid_oid
     
 
