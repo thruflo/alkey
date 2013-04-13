@@ -10,17 +10,27 @@ package and generate keys using, e.g.:
 
 [Alkey][] works by binding to the SQLAlchemy session's [after_flush][] and
 [after_commit][] events to maintain a unique token against every model instance.
-This token changes whenever a model instance is updated or deleted.
+This token changes whenever a model instance is updated or deleted. Plus a
+`alkey.constants.GLOBAL_WRITE_TOKEN` (with the value `'*#*'`) is updated
+whenever any instance is added, updated or deleted. You can use this to generate
+cache keys that invalidate in response to any db write, e.g.:
 
-The algorithm is to record instances as changed when they're flushed to the db
-in the session's dirty or deleted lists (identifiers in the format
-`Alkey:tablename#row_id`, e.g.: `Alkey:users#1`, are stored in a Redis set).
-Then when the flushed changes are committed, the tokens for each recorded
-instance are updated. This means that a cache key constructed using the
-instance tokens will miss, causing the cached value to be regenerated.
+    cache_key = request.cache_key('template uri', '*#*')
 
-(Tokens are also updated if missing, so keys will also be invalidated if you
-lose / flush your Redis data).
+The main algorithm is to record instances as changed when they're flushed to the
+db in the session's new, dirty or deleted lists (identifiers in the format
+`alkey:tablename#row_id`, e.g.: `alkey:users#1`, are stored in a Redis set).
+Then, when the session's transaction is committed, the tokens for each recorded
+instance are updated. This means that a cache key that contains the instance
+tokens will miss, causing the cached value to be regenerated.
+
+Note that new tokens are generated when instances are looked up that are not
+already in the cache. So keys will always be invalidated if you lose / flush
+your Redis data. Note also that changes recorded during a transaction that's
+subsequently rolled back will be discarded (i.e.: the instance tokens will not
+be updated) *unless* the rolled-back transaction is a sub-transaction. In that
+case (because Alkey can't distinguish between instances that were flushed in a
+top-level vs a sub-transaction) rollbacks may lead to unnecessary cache-misses.
 
 ## Configuring a Redis Client
 
@@ -101,21 +111,22 @@ install `mock`, `nose` and `coverage` and either hack the `setUp` method in
 `redis://localhost:6379`. Then, e.g.:
 
     $ nosetests alkey --with-doctest --with-coverage --cover-tests --cover-package alkey
-    ....................
+    ........................
     Name               Stmts   Miss  Cover   Missing
     ------------------------------------------------
     alkey                 11      0   100%   
-    alkey.cache           69      0   100%   
-    alkey.client          68      0   100%   
-    alkey.events          10      0   100%   
-    alkey.handle          38      0   100%   
+    alkey.cache           74      0   100%   
+    alkey.client          73      0   100%   
+    alkey.constants        6      0   100%   
+    alkey.events          12      0   100%   
+    alkey.handle          62      0   100%   
     alkey.interfaces       6      0   100%   
-    alkey.tests          119      0   100%   
+    alkey.tests          165      0   100%   
     alkey.utils           20      0   100%   
     ------------------------------------------------
-    TOTAL                341      0   100%   
+    TOTAL                429      0   100%   
     ----------------------------------------------------------------------
-    Ran 20 tests in 0.346s
+    Ran 24 tests in 0.461s
     
     OK
 
