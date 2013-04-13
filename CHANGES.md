@@ -1,4 +1,8 @@
 
+# 0.2.1
+
+* namespace the global write token to `alkey:*#*`.
+
 # 0.2
 
 * only invalidate tokens in response to instance changes recorded within a
