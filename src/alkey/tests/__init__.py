@@ -105,16 +105,41 @@ class IntegrationTest(unittest.TestCase):
         token1 = get_token(self.redis, instance)
         
         # Record that the instance has changed. Aka a mock flush.
-        record_changed(self.redis, [instance])
+        record_changed(self.redis, 'session_id', [instance])
         
         # Invalidate tokens for changed instances. Aka a mock commit.
-        invalidate_tokens(self.redis)
+        invalidate_tokens(self.redis, 'session_id')
         
         # Get the token again.
         token2 = get_token(self.redis, instance)
         
         # It's changed.
         self.assertTrue(token1 != token2)
+    
+    def test_get_token_for_changed_instance_requires_same_session_id(self):
+        """Instances changes will only be invalidated by a commit of the same
+          session that flushed to record the change.
+        """
+        
+        from alkey.cache import get_token
+        from alkey.handle import record_changed
+        from alkey.handle import invalidate_tokens
+        
+        # Get the current token.
+        instance = self.makeInstance()
+        token1 = get_token(self.redis, instance)
+        
+        # Record that the instance has changed. Aka a mock flush.
+        record_changed(self.redis, 'session_1', [instance])
+        
+        # Invalidate tokens for changed instances. Aka a mock commit.
+        invalidate_tokens(self.redis, 'session_2')
+        
+        # Get the token again.
+        token2 = get_token(self.redis, instance)
+        
+        # It's not changed.
+        self.assertTrue(token1 == token2)
     
     def test_stores_token_for_changed_instance(self):
         """Getting a token for a changed instance in the cache returns
@@ -131,10 +156,10 @@ class IntegrationTest(unittest.TestCase):
         token1 = get_token(self.redis, instance)
         
         # Record that the instance has changed. Aka a mock flush.
-        record_changed(self.redis, [instance])
+        record_changed(self.redis, 'session_id', [instance])
         
         # Invalidate tokens for changed instances. Aka a mock commit.
-        invalidate_tokens(self.redis)
+        invalidate_tokens(self.redis, 'session_id')
         
         # Get the token again.
         token2 = get_token(self.redis, instance)
@@ -148,6 +173,34 @@ class IntegrationTest(unittest.TestCase):
         # Get it again, its not changed.
         token3 = get_token(self.redis, instance)
         self.assertTrue(token2 == token3)
+    
+    def test_clears_token_for_changed_instance_after_rollback(self):
+        """A cached token should not be invalidated after a rollback."""
+        
+        import time
+        from alkey.cache import get_token
+        from alkey.handle import clear_changed
+        from alkey.handle import record_changed
+        from alkey.handle import invalidate_tokens
+        
+        # Get the current token.
+        instance = self.makeInstance()
+        token1 = get_token(self.redis, instance)
+        
+        # Record that the instance has changed. Aka a mock flush.
+        record_changed(self.redis, 'session_id', [instance])
+        
+        # Clear the changed set. Aka a mock rollback.
+        clear_changed(self.redis, 'session_id')
+        
+        # Invalidate tokens for changed instances. Aka a mock commit.
+        invalidate_tokens(self.redis, 'session_id')
+        
+        # Get the token again.
+        token2 = get_token(self.redis, instance)
+        
+        # It's not changed.
+        self.assertTrue(token1 == token2)
     
     def test_any_commit_invalidates_global_write_token(self):
         """The global token changes when any changes are commited."""
