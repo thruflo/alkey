@@ -20,6 +20,7 @@ except ImportError: #pragma: no cover
     get_current_request = lambda: None
 
 from .cache import set_token
+from .client import get_redis_client
 from .constants import CHANGED_KEY
 from .constants import CHANGED_SET_EXPIRES
 from .constants import GLOBAL_WRITE_TOKEN
