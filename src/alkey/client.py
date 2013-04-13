@@ -100,7 +100,12 @@ def get_redis_config(env, default_db=0, default_stub='REDIS', parse=None):
     url = None
     url_key = None
     for k, v in env.items():
-        if isinstance(v, basestring) and v.startswith(u'redis://'):
+        matches = False
+        if isinstance(v, unicode) and v.startswith(u'redis://'):
+            matches = True
+        elif isinstance(v, str) and v.startswith('redis://'):
+            matches = True
+        if matches:
             url_key = k
             url = parse(v)
             break
