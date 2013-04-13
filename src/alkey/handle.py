@@ -99,7 +99,7 @@ def handle_flush(session, ctx, get_redis=None, get_request=None, record=None):
     redis_client = get_redis(request)
     
     # Record the new, changed and deleted instances.
-    instances = session.new.union(session.dirty, session.deleted)
+    instances = session.new.union(session.dirty.union(session.deleted))
     record(redis_client, session.hash_key, instances)
 
 def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None):
