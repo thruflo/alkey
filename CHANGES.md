@@ -1,4 +1,9 @@
 
+# 0.2.3
+
+* bug fix model class write tokens
+* provide (optional) `request.cache_manager`
+
 # 0.2.2
 
 * maintain table write tokens, e.g.: `alkey:users#*`.
