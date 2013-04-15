@@ -26,6 +26,8 @@ from .constants import CHANGED_SET_EXPIRES
 from .constants import GLOBAL_WRITE_TOKEN
 from .utils import get_object_id
 from .utils import get_stamp
+from .utils import get_table_id
+from .utils import unpack_object_id
 
 def handle_commit(session, get_redis=None, get_request=None, invalidate=None):
     """Gets a redis client and call the invalidate function with it.
@@ -162,7 +164,7 @@ def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None):
     clear(redis_client, session.hash_key)
 
 def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
-        global_token=None, store_value=None):
+        global_token=None, store_value=None, table_oid=None, unpack_oid=None):
     """Invalidate tokens with a non-transactional pipeline call that minimises
       TCP overhead without blocking the redis client.
       
@@ -171,7 +173,7 @@ def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
       thread / process / client either sets the token or adds the member back to
       the set in between these two commands, as either the token is updated twice,
       which is fine, or the member is added to the set twice, which is fine, or
-      removed immediately before it is removed, which is fine.
+      updated immediately before it is removed, which is fine.
       
       The upshot of which is that there's no need to run the commands in a
       transaction, or (more importantly) to watch the changed key to make sure
@@ -189,6 +191,10 @@ def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
         global_token = GLOBAL_WRITE_TOKEN
     if store_value is None:
         store_value = set_token
+    if table_oid is None:
+        table_oid = get_table_id
+    if unpack_oid is None:
+        unpack_oid = unpack_object_id
     
     # Get the current members of the set, exiting if there are none.
     changed_key = u'{0}:{1}'.format(key, session_id)
@@ -202,11 +208,22 @@ def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
     # Get a pipeline to buffer multiple commands (i.e.: reduce TCP overhead)
     pipeline = redis_client.pipeline(transaction=False)
     
+    # Build a set of tablenames.
+    tablenames = set()
+    
     # Update the token for each member of the set, deleting the member from the
     # as the next sequential command.
     for item in members:
         store_value(pipeline, item, value)
+        try:
+            tablenames.add(unpack_oid(item)[0])
+        except IndexError:
+            pass
         pipeline.srem(changed_key, item)
+    
+    # Update the tables.
+    for item in tablenames:
+        store_value(pipeline, table_oid(item), value)
     
     # Update the global write token.
     store_value(pipeline, global_token, value)

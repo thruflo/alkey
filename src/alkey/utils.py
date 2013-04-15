@@ -5,6 +5,7 @@
 __all__ = [
     'get_object_id',
     'get_stamp',
+    'get_table_id',
     'unpack_object_id'
 ]
 
@@ -16,7 +17,7 @@ from datetime import datetime
 import re
 valid_object_id = re.compile(r'^alkey:[a-z_]+#[0-9]+$')
 
-def get_object_id(instance):
+def get_object_id(instance, table_oid=None):
     """Return an identifier for a model ``instance``.
       
       Setup::
@@ -31,7 +32,13 @@ def get_object_id(instance):
           >>> get_object_id(mock_instance)
           u'alkey:items#1234'
       
-      Unless it was passed a something else, in which case it returns it.
+      Can also be passed a model class::
+      
+          >>> mock_instance.id = '<column>'
+          >>> get_object_id(mock_instance)
+          u'alkey:items#*'
+      
+      Or an arbritrary value::
       
           >>> get_object_id('flobble')
           'flobble'
@@ -39,9 +46,20 @@ def get_object_id(instance):
       
     """
     
-    # If we've been passed an object id, return it.
+    # Compose.
+    if table_oid is None:
+        table_oid = get_table_id
+    
+    # If we've been passed a flushed sqlalchemy instance, return an instance
+    # identifier.
     if hasattr(instance, '__tablename__'):
-        return u'alkey:{0}#{1}'.format(instance.__tablename__, instance.id)
+        instance_id = getattr(instance, 'id', None)
+        if isinstance(instance_id, int):
+            return u'alkey:{0}#{1}'.format(instance.__tablename__, instance.id)
+        # Or if we've been passed an unflushed instance or a model class,
+        # return a class identifier.
+        return table_oid(instance.__tablename__)
+    # Otherwise pass through the argument value.
     return instance
 
 def get_stamp(datetime_instance=None):
@@ -56,16 +74,31 @@ def get_stamp(datetime_instance=None):
         datetime_instance = datetime.utcnow()
     return str(datetime_instance)
 
+def get_table_id(tablename):
+    """Return an identifier for a model class.
+      
+          >>> get_table_id('items')
+          u'alkey:items#*'
+      
+    """
+    
+    return u'alkey:{0}#*'.format(tablename)
+
 def unpack_object_id(object_id):
     """Return ``(table_name, id)`` for ``object_id``::
       
           >>> unpack_object_id(u'alkey:questions#1234')
           (u'questions', 1234)
+          >>> unpack_object_id(u'alkey:questions#*')
+          (u'questions', None)
       
     """
     
     s = object_id.replace(u'alkey:', '', 1)
     parts = s.split('#')
-    parts[1] = int(parts[1])
+    try:
+        parts[1] = int(parts[1])
+    except ValueError:
+        parts[1] = None
     return tuple(parts)
 

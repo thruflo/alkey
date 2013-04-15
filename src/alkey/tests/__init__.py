@@ -34,6 +34,13 @@ class IntegrationTest(unittest.TestCase):
         instance.id = id
         return instance
     
+    def makeInstanceClass(self, tablename='users'):
+        """Return a mock model instance."""
+        
+        cls = Mock()
+        cls.__tablename__ = tablename
+        return cls
+    
     def test_get_token_for_new_instance(self):
         """Getting a token for an instance that isn't yet in the cache
           returns a new timestamp.
@@ -201,6 +208,36 @@ class IntegrationTest(unittest.TestCase):
         
         # It's not changed.
         self.assertTrue(token1 == token2)
+    
+    def test_changed_instance_invalidates_class_token(self):
+        """A class token changes whenever any instance is updated."""
+        
+        import time
+        from alkey.cache import get_token
+        from alkey.handle import record_changed
+        from alkey.handle import invalidate_tokens
+        
+        # Get the current class token.
+        instance = self.makeInstance()
+        instance_class = self.makeInstanceClass()
+        token1 = get_token(self.redis, instance_class)
+        
+        time.sleep(0.1)
+        
+        # The token hasn't changed.
+        token2 = get_token(self.redis, instance_class)
+        self.assertTrue(token1 == token2)
+        
+        # Record that the instance has changed. Aka a mock flush.
+        record_changed(self.redis, 'session_id', [instance])
+        # Invalidate tokens for changed instances. Aka a mock commit.
+        invalidate_tokens(self.redis, 'session_id')
+        
+        # Now the class token has changed.
+        token3 = get_token(self.redis, instance_class)
+        
+        # It's changed.
+        self.assertTrue(token2 != token3)
     
     def test_any_commit_invalidates_global_write_token(self):
         """The global token changes when any changes are commited."""
