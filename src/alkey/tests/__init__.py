@@ -339,7 +339,7 @@ class IntegrationTest(unittest.TestCase):
         self.assertTrue(cache_key == u'€')
     
     def test_object_segment(self):
-        """Other args are ``unicode()``d."""
+        """Objects are coerced to a unicode string."""
         
         from alkey.cache import get_cache_key_generator
         
@@ -347,6 +347,22 @@ class IntegrationTest(unittest.TestCase):
         cache_key = generator({'foo': 'bar'})
         
         self.assertTrue(cache_key == u"{'foo': 'bar'}")
+    
+    def test_model_cls_segment(self):
+        """Model classes return the write token for that table."""
+        
+        from alkey.cache import get_cache_key_generator
+        from alkey.utils import get_stamp
+        
+        class Model(object):
+            __tablename__ = 'blathers'
+            id = '<Column>'
+        
+        generator = get_cache_key_generator(None)
+        cache_key = generator(Model)
+        
+        stamp = get_stamp()
+        self.assertTrue(cache_key.startswith(stamp.split(' ')[0]))
     
     def test_mixed_segments(self):
         """Keys can mix instances, object_ids, strings, objects, etc."""

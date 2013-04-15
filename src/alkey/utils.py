@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 from datetime import datetime
 
 import re
-valid_object_id = re.compile(r'^alkey:[a-z_]+#[0-9]+$')
+valid_object_id = re.compile(r'^alkey:[a-z_]+#[0-9]+$', re.U)
+valid_write_token = re.compile(r'^alkey:([a-z_]+|[*])#[*]$', re.U)
 
 def get_object_id(instance, table_oid=None):
     """Return an identifier for a model ``instance``.
