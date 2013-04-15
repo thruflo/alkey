@@ -1,4 +1,8 @@
 
+# 0.2.2
+
+* maintain table write tokens, e.g.: `alkey:users#*`.
+
 # 0.2.1
 
 * namespace the global write token to `alkey:*#*`.
