@@ -29,7 +29,14 @@ logger = logging.getLogger(__name__)
 
 from datetime import datetime
 
+try:
+    from beaker.cache import CacheManager
+    from beaker.util import parse_cache_config_options
+except ImportError:
+    pass
+
 from .client import get_redis_client
+from .constants import CACHE_INI_NAMESPACES
 from .constants import GLOBAL_WRITE_TOKEN
 from .constants import MAX_CACHE_DURATION
 from .constants import TOKEN_NAMESPACE
@@ -159,4 +166,37 @@ def get_cache_key_generator(request=None, generator_cls=None, get_redis=None):
     
     # Instantiate and return the cache key generator.
     return generator_cls(get_redis(request))
+
+
+def get_cache_manager(request, namespaces=None, parse=None, manager_cls=None):
+    """Return a configured beaker cache manager."""
+    
+    # Compose.
+    if namespaces is None:
+        namespaces = CACHE_INI_NAMESPACES
+    if parse is None:
+        parse = parse_cache_config_options
+    if manager_cls is None:
+        manager_cls = CacheManager
+    
+    # Unpack.
+    settings = request.registry.settings
+    
+    # For each of the namespaces provided, if they exist then patch their
+    # values into the cache_opts.
+    cache_opts = {}
+    for prefix in namespaces:
+        for key in settings.keys():
+            if key.startswith(prefix):
+                name = key.split(prefix)[1].strip()
+                value = settings[key]
+                try:
+                    value = value.strip()
+                except AttributeError:
+                    pass
+                cache_opts[name] = value
+    
+    # Instantiate and return the cache manager.
+    cache_manager = manager_cls(**parse(cache_opts))
+    return cache_manager
 

@@ -5,6 +5,7 @@
 """
 
 from .cache import get_cache_key_generator
+from .cache import get_cache_manager
 from .client import get_redis_client
 from .events import bind as bind_to_events
 
@@ -56,11 +57,13 @@ def includeme(config, bind=None, resolve=None):
           >>> includeme(mock_config, bind=mock_bind, resolve=mock_resolve)
           >>> mock_resolve.assert_called_with('mock.Mock')
       
-      Adds ``cache_key`` method and ``redis`` client to the request::
+      Adds ``cache_key``, ``cache_manager`` and ``redis`` to the request::
       
           >>> add_method = mock_config.add_request_method
           >>> add_method.assert_any_call(get_redis_client, 'redis')
           >>> add_method.assert_any_call(get_cache_key_generator, 'cache_key',
+          ...         reify=True)
+          >>> add_method.assert_any_call(get_cache_manager, 'cache_manager',
           ...         reify=True)
       
     """
@@ -82,4 +85,5 @@ def includeme(config, bind=None, resolve=None):
     # Extend the request.
     config.add_request_method(get_redis_client, 'redis')
     config.add_request_method(get_cache_key_generator, 'cache_key', reify=True)
+    config.add_request_method(get_cache_manager, 'cache_manager', reify=True)
 

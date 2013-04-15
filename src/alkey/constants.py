@@ -2,6 +2,9 @@
 
 """Shared constant values."""
 
+# Namespaces to look in for cache config.
+CACHE_INI_NAMESPACES = ('mako.cache_args.', 'cache.')
+
 # The key of the Redis set of changed instance identifiers.
 CHANGED_KEY = 'alkey.handle.CHANGED'
 
