@@ -107,25 +107,30 @@ class CacheKeyGenerator(object):
     """
     
     def __call__(self, *args):
-        """Returns the cache key using tokens for all of the args."""
+        """Returns the cache key using tokens for all of the args that should be
+          looked up for one, plus all of the original args.
+        """
         
         segments = []
         for arg in args:
-            # Try and get a token from redis.
+            # Coerce strings to unicode. Presumes any string args are utf-8.
+            if isinstance(arg, str):
+                arg = arg.decode('utf-8', 'replace')
+            # Get a potential object id from the arg. This may be an object id
+            # unicode string, or may just be a pass through of the argument.
             oid = self.get_object_id(arg)
-            is_str = isinstance(oid, basestring)
-            is_oid = is_str and self.valid_object_id.match(oid)
-            is_token = is_str and self.valid_write_token.match(oid)
+            if not isinstance(oid, unicode):
+                oid = unicode(oid)
+            # If we got a valid object id or a write token, then append the
+            # corresponding token value to the key.
+            is_oid = self.valid_object_id.match(oid)
+            is_token = self.valid_write_token.match(oid)
             if is_oid or is_token:
-                segment = self.get_token(self.redis, oid)
-            # Otherwise fallback on using a unicode representation of the arg.
-            elif isinstance(oid, unicode):
-                segment = arg
-            elif isinstance(oid, str):
-                segment = arg.decode('utf-8', 'replace')
-            else:
-                segment = unicode(arg)
-            segments.append(segment)
+                segments.append(self.get_token(self.redis, oid))
+            # Either way, always add the object id to the key -- this means
+            # a key generated with an instance will be unique to that instance,
+            # even if the instance timestamp value is the same as a sibling.
+            segments.append(oid)
         return u'/'.join(segments)
     
     def __init__(self, redis_client, get_oid=None, get_token_=None, global_token=None,

@@ -272,18 +272,20 @@ class IntegrationTest(unittest.TestCase):
         self.assertTrue(token2 != token3)
     
     def test_get_cache_key(self):
-        """Getting a cache key uses the instance token."""
+        """Getting a cache key uses the instance token and the object id."""
         
         from alkey.cache import get_cache_key_generator
         from alkey.cache import get_token
+        from alkey.utils import get_object_id
         
         instance = self.makeInstance()
         token = get_token(self.redis, instance)
+        oid = get_object_id(instance)
         
         generator = get_cache_key_generator(None)
         cache_key = generator(instance)
         
-        self.assertTrue(cache_key == token)
+        self.assertTrue(cache_key == u'/'.join([token, oid]))
     
     def test_get_cache_key_multiple_instances(self):
         """Getting a cache key works for a list of instances."""
@@ -302,7 +304,7 @@ class IntegrationTest(unittest.TestCase):
         self.assertTrue(token1 in cache_key)
         self.assertTrue(token2 in cache_key)
     
-    def test_get_cache_key_multiple_instances(self):
+    def test_get_cache_key_global_write_token(self):
         """Getting a cache key works for the global write token."""
         
         from alkey.cache import get_cache_key_generator
@@ -314,7 +316,7 @@ class IntegrationTest(unittest.TestCase):
         generator = get_cache_key_generator(None)
         cache_key = generator(GLOBAL_WRITE_TOKEN)
         
-        self.assertTrue(cache_key == token)
+        self.assertTrue(token in cache_key)
     
     def test_unicode_key_segment(self):
         """Unicode args are concatenated directly into the key."""
