@@ -1,4 +1,12 @@
 
+# 0.3
+
+* fix major bug causing cache keys that should be different to match by adding
+  the `object_id` to the cache key argument, as well as the token value:
+  this means that keys generated with an instance argument will always be
+  unique to that instance (instead of previously matching an instance edited
+  in the same commit)
+
 # 0.2.3
 
 * bug fix model class write tokens
