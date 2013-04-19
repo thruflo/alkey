@@ -46,9 +46,6 @@ def trace_redis(redis_module=None, get_methods=None, wrap=None):
       New Relic python agent.
     """
     
-    logger.warn('trace redis')
-    logger.warn(redis)
-    
     # Compose.
     if redis_module is None:
         redis_module = default_redis_module
@@ -67,5 +64,4 @@ def trace_redis(redis_module=None, get_methods=None, wrap=None):
             if not hasattr(client_cls, method):
                 continue
             wrap(redis_module, '{0}.{1}'.format(cls_name, method))
-            logger.warn(('wrap', cls_name, method))
 
