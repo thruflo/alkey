@@ -55,7 +55,7 @@ def trace_redis(redis_module=None, get_methods=None, wrap=None):
         wrap = wrap_function_trace
     
     # Trace connects.
-    wrap(redis, 'Connection.connect')
+    wrap(redis_module, 'Connection.connect')
     
     # Trace client calls.
     for cls_name in ('Redis', 'StrictRedis'):
