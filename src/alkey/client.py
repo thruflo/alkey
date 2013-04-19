@@ -166,11 +166,8 @@ def get_redis_client(request=None, env=None, get_config=None, get_registry=None,
         get_registry = getGlobalSiteManager
     if redis_cls is None:
         redis_cls = redis.StrictRedis
-    if pool_cls is None:
-        try: # https://github.com/andymccurdy/redis-py/pull/340
-            pool_cls = redis.BlockingConnectionPool
-        except ImportError:
-            pool_cls = redis.ConnectionPool
+    if pool_cls is None: # https://github.com/andymccurdy/redis-py/pull/340
+        pool_cls = getattr(redis, 'BlockingConnectionPool', redis.ConnectionPool)
     
     # Get the target ``registry``.
     has_registry = request and hasattr(request, 'registry')
