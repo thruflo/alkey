@@ -1,4 +1,9 @@
 
+# 0.3.1
+
+* add optional ``alkey.trace.trace_redis`` function to integrate the redis
+  client with new relic monitoring.
+
 # 0.3
 
 * fix major bug causing cache keys that should be different to match by adding
