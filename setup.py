@@ -14,7 +14,7 @@ def _read(file_name):
 
 setup(
     name = 'alkey',
-    version = '0.3.1.1',
+    version = '0.4',
     description = 'Redis backed tool for generating cache keys.',
     author = 'James Arthur',
     author_email = 'username: thruflo, domain: gmail.com',

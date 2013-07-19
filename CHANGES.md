@@ -1,4 +1,9 @@
 
+# 0.4
+
+* provide a reified `request.redis` client, instead of calling `request.redis()`
+  to get a redis client.
+
 # 0.3.1
 
 * add optional ``alkey.trace.trace_redis`` function to integrate the redis
