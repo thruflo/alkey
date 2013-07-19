@@ -83,7 +83,7 @@ def includeme(config, bind=None, resolve=None):
     bind(session_cls)
     
     # Extend the request.
-    config.add_request_method(get_redis_client, 'redis')
+    config.add_request_method(get_redis_client, 'redis', reify=True)
     config.add_request_method(get_cache_key_generator, 'cache_key', reify=True)
     config.add_request_method(get_cache_manager, 'cache_manager', reify=True)
 
