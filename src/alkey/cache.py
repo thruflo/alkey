@@ -131,7 +131,8 @@ class CacheKeyGenerator(object):
             # a key generated with an instance will be unique to that instance,
             # even if the instance timestamp value is the same as a sibling.
             segments.append(oid)
-        return u'/'.join(segments)
+        key = u'/'.join(segments)
+        return key
     
     def __init__(self, redis_client, get_oid=None, get_token_=None, global_token=None,
             valid_oid=None, valid_token=None):
