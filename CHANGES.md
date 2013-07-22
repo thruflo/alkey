@@ -1,4 +1,8 @@
 
+# 0.4.1
+
+* rebuild sdist without logging
+
 # 0.4
 
 * provide a reified `request.redis` client, instead of calling `request.redis()`
