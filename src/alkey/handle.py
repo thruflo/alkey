@@ -27,9 +27,10 @@ from .constants import GLOBAL_WRITE_TOKEN
 from .utils import get_object_id
 from .utils import get_stamp
 from .utils import get_table_id
+from .utils import resiliently_call
 from .utils import unpack_object_id
 
-def handle_commit(session, get_redis=None, get_request=None, invalidate=None):
+def handle_commit(session, get_redis=None, get_request=None, invalidate=None, call=None):
     """Gets a redis client and call the invalidate function with it.
       
           >>> from mock import Mock
@@ -55,6 +56,8 @@ def handle_commit(session, get_redis=None, get_request=None, invalidate=None):
         get_request = get_current_request
     if invalidate is None: # pragma: no cover
         invalidate = invalidate_tokens
+    if call is None: # pragma: no cover
+        call = resiliently_call
     
     # Get a redis client configured with the current scope's
     # connection pool.
@@ -62,9 +65,9 @@ def handle_commit(session, get_redis=None, get_request=None, invalidate=None):
     redis_client = get_redis(request)
     
     # Call the invalidate function.
-    invalidate(redis_client, session.hash_key)
+    call(invalidate, args=(redis_client, session.hash_key))
 
-def handle_flush(session, ctx, get_redis=None, get_request=None, record=None):
+def handle_flush(session, ctx, get_redis=None, get_request=None, record=None, call=None):
     """Get the current request and record the changed instances set::
       
           >>> from mock import Mock
@@ -94,6 +97,8 @@ def handle_flush(session, ctx, get_redis=None, get_request=None, record=None):
         get_request = get_current_request
     if record is None: # pragma: no cover
         record = record_changed
+    if call is None: # pragma: no cover
+        call = resiliently_call
     
     # Get a redis client configured with the current scope's
     # connection pool.
@@ -102,9 +107,9 @@ def handle_flush(session, ctx, get_redis=None, get_request=None, record=None):
     
     # Record the new, changed and deleted instances.
     instances = session.new.union(session.dirty.union(session.deleted))
-    record(redis_client, session.hash_key, instances)
+    call(record, args=(redis_client, session.hash_key, instances))
 
-def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None):
+def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None, call=None):
     """Get the current request and clear the changed instances set::
       
           >>> from mock import Mock
@@ -146,6 +151,8 @@ def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None):
         get_request = get_current_request
     if clear is None: # pragma: no cover
         clear = clear_changed
+    if call is None: # pragma: no cover
+        call = resiliently_call
     
     # Exit if this is an inner transaction -- i.e.: only wipe a changed set
     # if an outer transaction is rolled back. This uses an internal ``_parent``
@@ -161,7 +168,7 @@ def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None):
     redis_client = get_redis(request)
     
     # Clear the changed set.
-    clear(redis_client, session.hash_key)
+    call(clear, args=(redis_client, session.hash_key))
 
 def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
         global_token=None, store_value=None, table_oid=None, unpack_oid=None):
@@ -242,8 +249,7 @@ def clear_changed(redis_client, session_id, key=None):
     changed_key = u'{0}:{1}'.format(key, session_id)
     return redis_client.delete(changed_key)
 
-def record_changed(redis_client, session_id, instances, expires=None, key=None,
-        get_oid=None):
+def record_changed(redis_client, session_id, instances, expires=None, key=None, get_oid=None):
     """Add the instances to the changed set for this session."""
     
     # Compose.

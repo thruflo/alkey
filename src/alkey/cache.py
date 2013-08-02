@@ -35,6 +35,8 @@ try:
 except ImportError:
     pass
 
+from redis.exceptions import ConnectionError
+
 from .client import get_redis_client
 from .constants import CACHE_INI_NAMESPACES
 from .constants import GLOBAL_WRITE_TOKEN
@@ -42,6 +44,7 @@ from .constants import MAX_CACHE_DURATION
 from .constants import TOKEN_NAMESPACE
 from .utils import get_object_id
 from .utils import get_stamp
+from .utils import resiliently_call
 from .utils import valid_object_id
 from .utils import valid_write_token
 
@@ -57,7 +60,8 @@ def get_token_key(instance, namespace=None, get_oid=None):
     object_id = get_oid(instance)
     return u'{0}:{1}'.format(namespace, object_id)
 
-def get_token(redis_client, instance, get_key=None, get_value=None, set_value=None):
+def get_token(redis_client, instance, get_key=None, get_value=None,
+        set_value=None, call=None):
     """Provide a standalone function to get instance tokens."""
     
     # Compose.
@@ -67,6 +71,8 @@ def get_token(redis_client, instance, get_key=None, get_value=None, set_value=No
         get_value = get_stamp
     if set_value is None:
         set_value = set_token
+    if call is None:
+        call = resiliently_call
     
     # Get the token key.
     key = get_key(instance)
@@ -82,10 +88,17 @@ def get_token(redis_client, instance, get_key=None, get_value=None, set_value=No
     # (We don't use setnx because it always set the value on a volatile
     # key, i.e.: it would always overwrite the token every time its
     # read, no matter whether it exists or not).
-    token_value = redis_client.get(key)
+    try:
+        token_value = redis_client.get(key)
+    except ConnectionError as err:
+        # If the get fails because redis is down, return a temporary value
+        # without trying to store it.
+        logger.warn(err, exc_info=True)
+        token_value = get_value()
+    # If there was no value in the cache, generate and store it.
     if token_value is None:
         token_value = get_value()
-        set_value(redis_client, instance, token_value)
+        call(set_value, args=(redis_client, instance, token_value))
     return token_value
 
 def set_token(redis_client, instance, token_value, duration=None, get_key=None):
