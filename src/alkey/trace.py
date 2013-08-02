@@ -3,14 +3,14 @@
 """Provides an optional ``trace_redis`` function, which wraps Redis client calls
   so they're traceable by the New Relic python agent, e.g.:
   
-      >>> trace_redis()
+      trace_redis()
   
   Or to be explict about the redis module you want to trace::
   
-      >>> import redis as my_redis
-      >>> from alkey.trace import trace_redis
-      >>> 
-      >>> trace_redis(redis_module=my_redis)
+      import redis as my_redis
+      from alkey.trace import trace_redis
+      
+      trace_redis(redis_module=my_redis)
   
   This will make Redis appear in your New Relic monitoring (much like Memcache
   does out of the box). Note that tracing comes with a performance hit.
