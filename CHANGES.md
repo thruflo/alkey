@@ -1,4 +1,9 @@
 
+# 0.5
+
+* wrap calls to redis with a resilient function that retries on a connection
+  error and fails silently when its safe to do so
+
 # 0.4.1
 
 * rebuild sdist without logging
