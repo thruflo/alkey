@@ -60,7 +60,7 @@ def includeme(config, bind=None, resolve=None):
       Adds ``cache_key``, ``cache_manager`` and ``redis`` to the request::
       
           >>> add_method = mock_config.add_request_method
-          >>> add_method.assert_any_call(get_redis_client, 'redis')
+          >>> add_method.assert_any_call(get_redis_client, 'redis', reify=True)
           >>> add_method.assert_any_call(get_cache_key_generator, 'cache_key',
           ...         reify=True)
           >>> add_method.assert_any_call(get_cache_manager, 'cache_manager',
