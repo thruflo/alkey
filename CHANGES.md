@@ -1,4 +1,8 @@
 
+# 0.6
+
+Refactor the redis integration out to `pyramid_redis` and lose the `trace` module.
+
 # 0.5
 
 * wrap calls to redis with a resilient function that retries on a connection

@@ -6,7 +6,6 @@
 
 from .cache import get_cache_key_generator
 from .cache import get_cache_manager
-from .client import get_redis_client
 from .events import bind as bind_to_events
 
 # Taken from zope.dottedname
@@ -57,10 +56,13 @@ def includeme(config, bind=None, resolve=None):
           >>> includeme(mock_config, bind=mock_bind, resolve=mock_resolve)
           >>> mock_resolve.assert_called_with('mock.Mock')
       
-      Adds ``cache_key``, ``cache_manager`` and ``redis`` to the request::
+      Includes ``pyramid_redis``::
+      
+          >>> mock_config.include.assert_called_with('pyramid_redis')
+      
+      Adds ``cache_key``, ``cache_manager`` to the request::
       
           >>> add_method = mock_config.add_request_method
-          >>> add_method.assert_any_call(get_redis_client, 'redis', reify=True)
           >>> add_method.assert_any_call(get_cache_key_generator, 'cache_key',
           ...         reify=True)
           >>> add_method.assert_any_call(get_cache_manager, 'cache_manager',
@@ -83,7 +85,7 @@ def includeme(config, bind=None, resolve=None):
     bind(session_cls)
     
     # Extend the request.
-    config.add_request_method(get_redis_client, 'redis', reify=True)
+    config.include('pyramid_redis')
     config.add_request_method(get_cache_key_generator, 'cache_key', reify=True)
     config.add_request_method(get_cache_manager, 'cache_manager', reify=True)
 

@@ -10,18 +10,20 @@ try: # pragma: no cover
 except ImportError: # pragma: no cover
     pass
 
+TEST_SETTINGS = {
+    'redis.url': 'redis://localhost:6379',
+    'redis.db': 6
+}
+
 class IntegrationTest(unittest.TestCase):
     """Test token and cache key generation in response to model changes."""
     
     def setUp(self):
         """Setup a redis client on a test db"""
         
-        from alkey.client import get_redis_client
-        env = {
-            'REDIS_URL': 'redis://localhost:6379',
-            'REDIS_DB': 6
-        }
-        self.redis = get_redis_client(None, env=env)
+        from alkey.client import GetRedisClient
+        get_redis_client = GetRedisClient(settings=TEST_SETTINGS)
+        self.redis = get_redis_client()
     
     def tearDown(self):
         self.redis.flushdb()

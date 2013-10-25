@@ -57,13 +57,6 @@ to unnecessary cache-misses.
 * `REDIS_MAX_CONNECTIONS`: the maximum number of connections for the client's
   connection pool (defaults to not set)
 
-The parsing logic is intelligent enough to pick up environment variables
-provided by popular [Heroku addons][] like `REDISTOGO_URL` and `OPENREDIS_URL`,
-etc. Read the `alkey.client.get_redis_config` docstring for the gory details.
-Alternatively, if you'd prefer to provide your own redis client, register an `alkey.interfaces.IRedisClientFactory` function or an
-`alkey.interfaces.IRedisConnectionPool` instance. Read 
-`alkey.client.get_redis_client` to see how.
-
 ## Binding to Session Events
 
 Use the `alkey.events.bind` function, e.g.:

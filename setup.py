@@ -14,7 +14,7 @@ def _read(file_name):
 
 setup(
     name = 'alkey',
-    version = '0.5',
+    version = '0.6',
     description = 'Redis backed tool for generating cache keys.',
     author = 'James Arthur',
     author_email = 'username: thruflo, domain: gmail.com',
@@ -43,5 +43,6 @@ setup(
         'zope.interface',
         'sqlalchemy',
         'redis',
+        'pyramid_redis',
     ]
 )
