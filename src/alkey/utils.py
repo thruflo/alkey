@@ -179,5 +179,6 @@ def get_single_relations(instance):
         if is_single_relation(relprop):
             id_ = getattr(instance, '{0}_id'.format(key), None)
             tablename = relprop.mapper.class_.__tablename__
-            mapping[key] = u'alkey:{0}#{1}'.format(tablename, id_)
+            if id_ and tablename:
+                mapping[key] = u'alkey:{0}#{1}'.format(tablename, id_)
     return mapping.values()
