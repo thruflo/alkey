@@ -262,7 +262,8 @@ def clear_changed(redis_client, session_id, key=None):
     changed_key = u'{0}:{1}'.format(key, session_id)
     return redis_client.delete(changed_key)
 
-def record_changed(redis_client, session_id, instances, relation_oids, expires=None, key=None, get_oid=None):
+def record_changed(redis_client, session_id, instances, relation_oids=None,
+        expires=None, key=None, get_oid=None):
     """Add the instances to the changed set for this session."""
 
     # Compose.
@@ -272,6 +273,8 @@ def record_changed(redis_client, session_id, instances, relation_oids, expires=N
         key = CHANGED_KEY
     if get_oid is None:
         get_oid = get_object_id
+    if relation_oids is None:
+        relation_oids = []
 
     changed_key = u'{0}:{1}'.format(key, session_id)
     instance_oids = [get_oid(item) for item in instances]
