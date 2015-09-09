@@ -1,4 +1,33 @@
 
+# 0.7
+
+Also invalidate single relations: when an instance is invalidated, we
+also look for any relations that the instance "belongs to" and we
+invalidate their cache as well.
+
+For example, given somethinf like:
+
+    class Order(...):
+        user_id = ...
+        user = relation(...)
+
+Previously when saving a new order like this:
+
+    order = Order()
+    user.orders.append(order)
+
+This would bust the user cache -- because sqlalchemy knew that the user
+had been edited and would include it in the session's `dirty` map. However
+if you saved an order like this:
+
+    order = Order(user_id=1234)
+
+Sqlalchemy didn't pick up on the user relation. So, this release introduces
+an *attempt* to pick up on these changes manually.
+
+(At the time of writing, it's been tested successfully in a proprietary app
+but the tests haven't been ported here).
+
 # 0.6
 
 Refactor the redis integration out to `pyramid_redis` and lose the `trace` module.
