@@ -166,3 +166,16 @@ def resiliently_call(target, args=[], kwargs={}, should_raise=False, sleep=None,
                 raise
             logger.warn(err, exc_info=True)
 
+def is_single_relation(candidate):
+    return isinstance(candidate, relprop_cls) and not candidate.uselist
+
+def get_single_relations(instance):
+    mapping = {}
+    cls = instance.__class__
+    for key, value in cls.__dict__.iteritems():
+        relprop = getattr(value, 'property', None)
+        if is_single_relation(relprop):
+            id_ = getattr(instance, '{0}_id'.format(key), None)
+            tablename = relprop.mapper.class_.__tablename__
+            mapping[key] = u'alkey:{0}#{1}'.format(tablename, id_)
+    return mapping.values()

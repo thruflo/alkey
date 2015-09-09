@@ -17,7 +17,7 @@ Plus it has (optional) integration with the [Pyramid][] framework:
 
 ## How it Works
 
-[Alkey][] works by binding to the SQLAlchemy session's [after_flush][] and
+[Alkey][] works by binding to the SQLAlchemy session's [before_flush][] and
 [after_commit][] events to maintain a unique token, in Redis, against every
 model instance. As long as the model instance has a unique `id` property, this
 token will change whenever the instance is updated or deleted. In addition,
@@ -162,7 +162,7 @@ install `mock`, `nose` and `coverage` and either hack the `setUp` method in
 [Redis]: http://redis.io
 [SQLAlchemy]: http://www.sqlalchemy.org/
 [redis client]: https://github.com/andymccurdy/redis-py
-[after_flush]: http://docs.sqlalchemy.org/ru/latest/orm/events.html#sqlalchemy.orm.events.SessionEvents.after_flush
+[before_flush]: http://docs.sqlalchemy.org/ru/latest/orm/events.html#sqlalchemy.orm.events.SessionEvents.before_flush
 [after_commit]: http://docs.sqlalchemy.org/ru/latest/orm/events.html#sqlalchemy.orm.events.SessionEvents.after_commit
 [Pyramid]: http://docs.pylonsproject.org/projects/pyramid/en/latest
 [Mako template]: http://www.makotemplates.org/

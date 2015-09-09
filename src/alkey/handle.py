@@ -25,6 +25,7 @@ from .constants import CHANGED_KEY
 from .constants import CHANGED_SET_EXPIRES
 from .constants import GLOBAL_WRITE_TOKEN
 from .utils import get_object_id
+from .utils import get_single_relations
 from .utils import get_stamp
 from .utils import get_table_id
 from .utils import resiliently_call
@@ -106,8 +107,20 @@ def handle_flush(session, ctx, get_redis=None, get_request=None, record=None, ca
     redis_client = get_redis(request)
     
     # Record the new, changed and deleted instances.
-    instances = session.new.union(session.dirty.union(session.deleted))
-    call(record, args=(redis_client, session.hash_key, instances))
+    identity_set = session.new.union(session.dirty.union(session.deleted))
+
+    # *And* record any single relations identified by id -- this allows
+    # us to catch edge case scenarios where a child is saved without
+    # explicitly setting/appending it to the parent's relationship
+    # property, i.e.: by setting `order.user_id = 1234` rather than
+    # `user.orders.append(order)` on a one to many relationship.
+    relations = []
+    for instance in identity_set:
+        single_relations = get_single_relations(instance)
+        if single_relations:
+            relations.extend(single_relations)
+
+    call(record, args=(redis_client, session.hash_key, identity_set, relations))
 
 def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None, call=None):
     """Get the current request and clear the changed instances set::
@@ -249,7 +262,7 @@ def clear_changed(redis_client, session_id, key=None):
     changed_key = u'{0}:{1}'.format(key, session_id)
     return redis_client.delete(changed_key)
 
-def record_changed(redis_client, session_id, instances, expires=None, key=None, get_oid=None):
+def record_changed(redis_client, session_id, instances, relation_oids, expires=None, key=None, get_oid=None):
     """Add the instances to the changed set for this session."""
     
     # Compose.
@@ -261,8 +274,9 @@ def record_changed(redis_client, session_id, instances, expires=None, key=None, 
         get_oid = get_object_id
     
     changed_key = u'{0}:{1}'.format(key, session_id)
-    values = [get_oid(item) for item in instances]
-    
+    instance_oids = [get_oid(item) for item in instances]
+    values = tuple(set(instance_oids + relation_oids))
+
     # Add and update set expiry within a transaction.
     pipeline = redis_client.pipeline()
     pipeline.sadd(changed_key, *values).expire(changed_key, expires)
