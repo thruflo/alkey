@@ -20,20 +20,20 @@ from .handle import handle_rollback
 def bind(session_cls, event=None, commit=None, flush=None, rollback=None):
     """Handle the ``before_flush`` and ``after_commit`` events of the
       ``session_cls`` provided::
-      
+
           >>> from mock import Mock
           >>> mock_event = Mock()
           >>> bind('session', event=mock_event, commit='handle_commit',
           ...         flush='handle_flush', rollback='handle_rollback')
-          >>> mock_event.listen.assert_any_call('session', 'after_commit', 
+          >>> mock_event.listen.assert_any_call('session', 'after_commit',
           ...         'handle_commit')
           >>> mock_event.listen.assert_any_call('session', 'before_flush',
           ...         'handle_flush')
           >>> mock_event.listen.assert_any_call('session', 'after_soft_rollback',
           ...         'handle_rollback')
-      
+
     """
-    
+
     # Compose.
     if event is None: # pragma: no cover
         event = sqlalchemy_event

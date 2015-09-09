@@ -34,56 +34,56 @@ def _resolve_dotted(name, module=None): #pragma: no cover
 
 def includeme(config, bind=None, resolve=None):
     """Pyramid configuration for this package.
-      
+
       Setup::
-      
+
           >>> from mock import Mock
           >>> mock_config = Mock()
           >>> mock_config.registry.settings = {}
           >>> mock_bind = Mock()
           >>> mock_resolve = Mock()
-      
+
       Binds session events to the pyramid_basemodel.Session by default::
-      
+
           >>> mock_resolve.return_value = '<Session>'
           >>> includeme(mock_config, bind=mock_bind, resolve=mock_resolve)
           >>> mock_resolve.assert_called_with('pyramid_basemodel.Session')
           >>> mock_bind.assert_called_with('<Session>')
-      
+
       Unless ``alkey.session_cls`` is provided in the ``settings``::
-      
+
           >>> mock_config.registry.settings = {'alkey.session_cls': 'mock.Mock'}
           >>> includeme(mock_config, bind=mock_bind, resolve=mock_resolve)
           >>> mock_resolve.assert_called_with('mock.Mock')
-      
+
       Includes ``pyramid_redis``::
-      
+
           >>> mock_config.include.assert_called_with('pyramid_redis')
-      
+
       Adds ``cache_key``, ``cache_manager`` to the request::
-      
+
           >>> add_method = mock_config.add_request_method
           >>> add_method.assert_any_call(get_cache_key_generator, 'cache_key',
           ...         reify=True)
           >>> add_method.assert_any_call(get_cache_manager, 'cache_manager',
           ...         reify=True)
-      
+
     """
-    
+
     # Compose.
     if bind is None: #pragma: no cover
         bind = bind_to_events
     if resolve is None: #pragma: no cover
         resolve = _resolve_dotted
-    
+
     # Get the session class.
     settings = config.registry.settings
     dotted_path = settings.get('alkey.session_cls', 'pyramid_basemodel.Session')
     session_cls = resolve(dotted_path)
-    
+
     # Bind to events.
     bind(session_cls)
-    
+
     # Extend the request.
     config.include('pyramid_redis')
     config.add_request_method(get_cache_key_generator, 'cache_key', reify=True)

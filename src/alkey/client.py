@@ -19,7 +19,7 @@ class GetRedisClient(object):
     def __init__(self, **kwargs):
         self.factory = kwargs.get('factory', RedisFactory())
         self.settings = kwargs.get('settings', DEFAULT_SETTINGS)
-    
+
     def __call__(self, request=None):
         if request is None:
             registry = None
@@ -28,6 +28,6 @@ class GetRedisClient(object):
             registry = request.registry
             settings = registry.settings
         return self.factory(settings, registry=registry)
-    
+
 
 get_redis_client = GetRedisClient()

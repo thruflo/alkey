@@ -33,7 +33,7 @@ from .utils import unpack_object_id
 
 def handle_commit(session, get_redis=None, get_request=None, invalidate=None, call=None):
     """Gets a redis client and call the invalidate function with it.
-      
+
           >>> from mock import Mock
           >>> mock_session = Mock()
           >>> mock_session.hash_key = 'session id'
@@ -47,9 +47,9 @@ def handle_commit(session, get_redis=None, get_request=None, invalidate=None, ca
           >>> handle_commit(mock_session, **mock_kwargs)
           >>> mock_get_redis.assert_called_with('<request>')
           >>> mock_invalidate.assert_called_with('<redis client>', 'session id')
-      
+
     """
-    
+
     # Compose.
     if get_redis is None: # pragma: no cover
         get_redis = get_redis_client
@@ -59,18 +59,18 @@ def handle_commit(session, get_redis=None, get_request=None, invalidate=None, ca
         invalidate = invalidate_tokens
     if call is None: # pragma: no cover
         call = resiliently_call
-    
+
     # Get a redis client configured with the current scope's
     # connection pool.
     request = get_request()
     redis_client = get_redis(request)
-    
+
     # Call the invalidate function.
     call(invalidate, args=(redis_client, session.hash_key))
 
 def handle_flush(session, ctx, get_redis=None, get_request=None, record=None, call=None):
     """Get the current request and record the changed instances set::
-      
+
           >>> from mock import Mock
           >>> mock_session = Mock()
           >>> mock_session.hash_key = 'session id'
@@ -88,9 +88,9 @@ def handle_flush(session, ctx, get_redis=None, get_request=None, record=None, ca
           >>> mock_get_redis.assert_called_with('<request>')
           >>> mock_record.assert_called_with('<redis client>', 'session id',
           ...         set(['a', 'c', 'b']))
-      
+
     """
-    
+
     # Compose.
     if get_redis is None: # pragma: no cover
         get_redis = get_redis_client
@@ -100,12 +100,12 @@ def handle_flush(session, ctx, get_redis=None, get_request=None, record=None, ca
         record = record_changed
     if call is None: # pragma: no cover
         call = resiliently_call
-    
+
     # Get a redis client configured with the current scope's
     # connection pool.
     request = get_request()
     redis_client = get_redis(request)
-    
+
     # Record the new, changed and deleted instances.
     identity_set = session.new.union(session.dirty.union(session.deleted))
 
@@ -124,7 +124,7 @@ def handle_flush(session, ctx, get_redis=None, get_request=None, record=None, ca
 
 def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None, call=None):
     """Get the current request and clear the changed instances set::
-      
+
           >>> from mock import Mock
           >>> mock_session = Mock()
           >>> mock_session.hash_key = 'session id'
@@ -136,9 +136,9 @@ def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None, c
           >>> mock_clear = Mock()
           >>> mock_kwargs = dict(get_redis=mock_get_redis,
           ...         get_request=mock_get_request, clear=mock_clear)
-      
+
       Exits if ``tx_parent is None``::
-      
+
           >>> mock_tx._parent = None
           >>> handle_rollback(mock_session, mock_tx, **mock_kwargs)
           >>> mock_get_redis.assert_called_with('<request>') # doctest: +ELLIPSIS
@@ -146,17 +146,17 @@ def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None, c
           ...
           AssertionError: Expected call: mock('<request>')
           Not called
-      
+
       Otherwise get the redis client using the current request and clears the
       changed instances set::
-      
+
           >>> mock_tx._parent = 'Not None'
           >>> handle_rollback(mock_session, mock_tx, **mock_kwargs)
           >>> mock_get_redis.assert_called_with('<request>')
           >>> mock_clear.assert_called_with('<redis client>', 'session id')
-      
+
     """
-    
+
     # Compose.
     if get_redis is None: # pragma: no cover
         get_redis = get_redis_client
@@ -166,7 +166,7 @@ def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None, c
         clear = clear_changed
     if call is None: # pragma: no cover
         call = resiliently_call
-    
+
     # Exit if this is an inner transaction -- i.e.: only wipe a changed set
     # if an outer transaction is rolled back. This uses an internal ``_parent``
     # property of the transaction but that seems the most reliable way of
@@ -175,11 +175,11 @@ def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None, c
     # according to the session config).
     if tx._parent is None:
         return
-    
+
     # Get a redis client configured with the current scope's connection pool.
     request = get_request()
     redis_client = get_redis(request)
-    
+
     # Clear the changed set.
     call(clear, args=(redis_client, session.hash_key))
 
@@ -187,21 +187,21 @@ def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
         global_token=None, store_value=None, table_oid=None, unpack_oid=None):
     """Invalidate tokens with a non-transactional pipeline call that minimises
       TCP overhead without blocking the redis client.
-      
+
       Note that the implementation deletes members from the changed set the
       command after their token is changed. It's really not a problem if another
       thread / process / client either sets the token or adds the member back to
       the set in between these two commands, as either the token is updated twice,
       which is fine, or the member is added to the set twice, which is fine, or
       updated immediately before it is removed, which is fine.
-      
+
       The upshot of which is that there's no need to run the commands in a
       transaction, or (more importantly) to watch the changed key to make sure
       members aren't added to the set whilst the transaction is completed. This
       means we don't need to block redis / stop flushes from another client adding
       members to the set as we do this block operation.
     """
-    
+
     # Compose.
     if key is None:
         key = CHANGED_KEY
@@ -215,22 +215,22 @@ def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
         table_oid = get_table_id
     if unpack_oid is None:
         unpack_oid = unpack_object_id
-    
+
     # Get the current members of the set, exiting if there are none.
     changed_key = u'{0}:{1}'.format(key, session_id)
     members = redis_client.smembers(changed_key)
     if not members:
         return
-    
+
     # Get a new value for the token.
     value = get_value()
-      
+
     # Get a pipeline to buffer multiple commands (i.e.: reduce TCP overhead)
     pipeline = redis_client.pipeline(transaction=False)
-    
+
     # Build a set of tablenames.
     tablenames = set()
-    
+
     # Update the token for each member of the set, deleting the member from the
     # as the next sequential command.
     for item in members:
@@ -240,31 +240,31 @@ def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
         except IndexError:
             pass
         pipeline.srem(changed_key, item)
-    
+
     # Update the tables.
     for item in tablenames:
         store_value(pipeline, table_oid(item), value)
-    
+
     # Update the global write token.
     store_value(pipeline, global_token, value)
-    
+
     # Execute the queued commands.
     pipeline.execute()
 
 def clear_changed(redis_client, session_id, key=None):
     """Clear the changed set for this session."""
-    
+
     # Compose.
     if key is None:
         key = CHANGED_KEY
-    
+
     # Get the current members of the set, exiting if there are none.
     changed_key = u'{0}:{1}'.format(key, session_id)
     return redis_client.delete(changed_key)
 
 def record_changed(redis_client, session_id, instances, relation_oids, expires=None, key=None, get_oid=None):
     """Add the instances to the changed set for this session."""
-    
+
     # Compose.
     if expires is None:
         expires = CHANGED_SET_EXPIRES
@@ -272,7 +272,7 @@ def record_changed(redis_client, session_id, instances, relation_oids, expires=N
         key = CHANGED_KEY
     if get_oid is None:
         get_oid = get_object_id
-    
+
     changed_key = u'{0}:{1}'.format(key, session_id)
     instance_oids = [get_oid(item) for item in instances]
     values = tuple(set(instance_oids + relation_oids))
