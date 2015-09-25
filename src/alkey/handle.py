@@ -87,7 +87,7 @@ def handle_flush(session, ctx, get_redis=None, get_request=None, record=None, ca
           >>> handle_flush(mock_session, 'ctx', **mock_kwargs)
           >>> mock_get_redis.assert_called_with('<request>')
           >>> mock_record.assert_called_with('<redis client>', 'session id',
-          ...         set(['a', 'c', 'b']))
+          ...         set(['a', 'c', 'b']), [])
 
     """
 
@@ -183,8 +183,9 @@ def handle_rollback(session, tx, get_redis=None, get_request=None, clear=None, c
     # Clear the changed set.
     call(clear, args=(redis_client, session.hash_key))
 
-def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
-        global_token=None, store_value=None, table_oid=None, unpack_oid=None):
+def invalidate_tokens(redis_client, session_id, key=None, get_members=None,
+        get_value=None, global_token=None, store_value=None, table_oid=None,
+        unpack_oid=None):
     """Invalidate tokens with a non-transactional pipeline call that minimises
       TCP overhead without blocking the redis client.
 
@@ -205,6 +206,8 @@ def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
     # Compose.
     if key is None:
         key = CHANGED_KEY
+    if get_members is None:
+        get_members = get_changed
     if get_value is None:
         get_value = get_stamp
     if global_token is None:
@@ -217,8 +220,7 @@ def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
         unpack_oid = unpack_object_id
 
     # Get the current members of the set, exiting if there are none.
-    changed_key = u'{0}:{1}'.format(key, session_id)
-    members = redis_client.smembers(changed_key)
+    members = get_members(redis_client, session_id, key=key)
     if not members:
         return
 
@@ -233,6 +235,7 @@ def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
 
     # Update the token for each member of the set, deleting the member from the
     # as the next sequential command.
+    changed_key = u'{0}:{1}'.format(key, session_id)
     for item in members:
         store_value(pipeline, item, value)
         try:
@@ -250,6 +253,17 @@ def invalidate_tokens(redis_client, session_id, key=None, get_value=None,
 
     # Execute the queued commands.
     pipeline.execute()
+
+def get_changed(redis_client, session_id, key=None):
+    """Get the changed set for this session."""
+
+    # Compose.
+    if key is None:
+        key = CHANGED_KEY
+
+    # Get the current members of the set, exiting if there are none.
+    changed_key = u'{0}:{1}'.format(key, session_id)
+    return redis_client.smembers(changed_key)
 
 def clear_changed(redis_client, session_id, key=None):
     """Clear the changed set for this session."""
